@@ -1,0 +1,3 @@
+
+include versioneer.py
+include dlp_qc_utils/_version.py
