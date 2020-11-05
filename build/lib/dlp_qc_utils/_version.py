@@ -7,10 +7,10 @@ import json
 import sys
 version_json = '''
 {
- "dirty": false,
+ "dirty": true,
  "error": null,
- "full-revisionid": "bf57743b4cefbd33faca0d2c6dd0d067392c9fe9",
- "version": "0+untagged.1.gbf57743"
+ "full-revisionid": "60c814ce9408740aa183c01cd6283be9eb7a6d04",
+ "version": "0+untagged.2.g60c814c.dirty"
 }
 '''  # END VERSION_JSON
 def get_versions():
