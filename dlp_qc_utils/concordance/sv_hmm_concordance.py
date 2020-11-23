@@ -6,11 +6,13 @@ import pyranges as pr
 
 
 def get_cna_changepoints(cna_data, change_region_length = 500000):
+    print(len(cna_data))
     cn_data_summary = cna_data.groupby(['chr', 'start', 'end'])
     cn_data_summary = cn_data_summary[['copy', 'state']]
     cn_data_summary = cn_data_summary.aggregate(
         {'copy': statistics.median, 'state': statistics.median}
     )
+    print(len(cn_data_summary))
     cn_data_summary["cn_change"]=cn_data_summary.groupby('chr').state.transform(pd.Series.diff)
     cn_data_summary.reset_index(inplace=True)
     cn_data_summary = cn_data_summary[(cn_data_summary.cn_change!=0)].dropna()
@@ -22,16 +24,46 @@ def get_cna_changepoints(cna_data, change_region_length = 500000):
 
     return cn_data_summary
 
+def get_local_breakpoints(changepoint, breakpoints, size_filter=True, stranded=False, csv=True):
+    if csv:
+        breakpoints = read_parsed_breakpoints(breakpoints)
+    if size_filter:
+        breakpoints = size_filter_svs(breakpoints)
+
+    chrom = changepoint.chr.tolist()[0]
+    start = changepoint.start.tolist()[0]
+    end = changepoint.end.tolist()[0]
+    matching = breakpoints[(breakpoints.chromosome_1 == chrom) | (breakpoints.chromosome_2 == chrom)]
+    # print(matching)
+    matching_1 = matching[(matching.position_1 >= start) & (matching.position_1 <= end)]
+    matching_2 = matching[(matching.position_2 >= start) & (matching.position_2 <= end)]
+    matching = pd.concat([matching_1, matching_2])
+    if stranded:
+        if changepoints.cn_change > 0:
+            return matching[(matching.strand_1 == "-") | (matching.strand_1 == "_")]
+        if changepoints.cn_change < 0:
+            return matching[(matching.strand_1 == "+") | (matching.strand_1 == "+")]
+    else:
+        return matching
 
 
 def anno_bkp(row, cn, side="1"):
+    
     if side == "1":
         chrom = str(row.chromosome_1)
-        pos = row.position_1
+        pos = int(row.position_1)
+        strand = str(row.strand_1)
     else:
         chrom = str(row.chromosome_2)
-        pos = row.position_2        
-    pos = int(pos)
+        pos = int(row.position_2)     
+        strand = str(row.strand_2)
+
+    if strand == "-":
+        #look for -
+        cn = cn[cn.cn_change > 0]
+    else:
+        cn = cn[cn.cn_change < 0]
+
     matches = cn[(cn.start < pos) 
         & (cn.end > pos) 
         & (cn.chr == chrom)]
@@ -50,6 +82,36 @@ def anno_bkp(row, cn, side="1"):
         row["cn_change_pos_{}".format(side)] = matches.cn_change.tolist()[0]
     row["pos_{}_in_cn_change_region".format(side)] = not matches.empty
     return row
+
+# def anno_bkp(row, cn, side="1"):
+
+
+#     if side == "1":
+#         chrom = str(row.chromosome_1)
+#         pos = int(row.position_1)
+#     else:
+#         chrom = str(row.chromosome_2)
+#         pos = int(row.position_2)     
+
+#     matches = cn[(cn.start < pos) 
+#         & (cn.end > pos) 
+#         & (cn.chr == chrom)]
+#     matches = matches.reset_index()
+
+#     if matches.empty:
+#         row["chr_pos_{}".format(side)] = np.NaN
+#         row["start_pos_{}".format(side)] = np.NaN
+#         row["end_pos_{}".format(side)] = np.NaN
+#         row["state_pos_{}".format(side)] = np.NaN
+#         row["cn_change_pos_{}".format(side)] = np.NaN
+#     else:
+#         row["chr_pos_{}".format(side)] = matches.chr.tolist()[0]
+#         row["start_pos_{}".format(side)] = matches.start.tolist()[0]
+#         row["end_pos_{}".format(side)] = matches.end.tolist()[0]
+#         row["state_pos_{}".format(side)] = matches.state.tolist()[0]
+#         row["cn_change_pos_{}".format(side)] = matches.cn_change.tolist()[0]
+#     row["pos_{}_in_cn_change_region".format(side)] = not matches.empty
+#     return row
 
 
 def match_changepoints(changepoints, sv):
@@ -78,15 +140,41 @@ def flatten_matched_breakpoints(matched, csv=False):
     return flat
 
 
-def get_concordance(sv, changepoints, csv=True, verbose=True):
+def filt_row(row, res):
+    if row.chromosome_1 != row.chromosome_2:
+        return True
 
-    sv = CsvInput(sv).read_csv()
+    if abs(row.position_1 - row.position_2) >= res:
+        return True
+    
+    return False
+    
 
-    essential_columns = ["chromosome_1", "chromosome_2", "position_1", "position_2", "type"]
+
+
+def size_filter_svs(sv, res=500000):
+    return sv[sv.apply(lambda row: filt_row(row, res), axis=1)]
+
+def read_parsed_breakpoints(sv):
+    # try:
+    #     sv = CsvInput(sv).read_csv()
+    # except: 
+    sv = pd.read_csv(sv)
+    
+    sv = sv.astype({"chromosome_1": "str", "chromosome_2":"str", "position_1":"int", "position_2":"int"})
+        
+    essential_columns = ["chromosome_1", "chromosome_2", "position_1", "position_2", "strand_1", "strand_2", "type"]
 
     assert all(col in sv.columns for col in essential_columns)
 
-    sv = sv[["chromosome_1", "chromosome_2", "position_1", "position_2", "type"]]
+    sv = sv[["chromosome_1", "chromosome_2", "position_1", "position_2", "strand_1", "strand_2", "type"]]
+    return sv
+
+def get_concordance(sv, changepoints, csv=True, verbose=True):
+
+    sv = read_parsed_breakpoints(sv)
+
+    sv = size_filter_svs(sv)
 
     matched = match_changepoints(changepoints, sv)
 
