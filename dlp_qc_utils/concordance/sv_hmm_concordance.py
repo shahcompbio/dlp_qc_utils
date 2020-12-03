@@ -83,37 +83,6 @@ def anno_bkp(row, cn, side="1"):
     row["pos_{}_in_cn_change_region".format(side)] = not matches.empty
     return row
 
-# def anno_bkp(row, cn, side="1"):
-
-
-#     if side == "1":
-#         chrom = str(row.chromosome_1)
-#         pos = int(row.position_1)
-#     else:
-#         chrom = str(row.chromosome_2)
-#         pos = int(row.position_2)     
-
-#     matches = cn[(cn.start < pos) 
-#         & (cn.end > pos) 
-#         & (cn.chr == chrom)]
-#     matches = matches.reset_index()
-
-#     if matches.empty:
-#         row["chr_pos_{}".format(side)] = np.NaN
-#         row["start_pos_{}".format(side)] = np.NaN
-#         row["end_pos_{}".format(side)] = np.NaN
-#         row["state_pos_{}".format(side)] = np.NaN
-#         row["cn_change_pos_{}".format(side)] = np.NaN
-#     else:
-#         row["chr_pos_{}".format(side)] = matches.chr.tolist()[0]
-#         row["start_pos_{}".format(side)] = matches.start.tolist()[0]
-#         row["end_pos_{}".format(side)] = matches.end.tolist()[0]
-#         row["state_pos_{}".format(side)] = matches.state.tolist()[0]
-#         row["cn_change_pos_{}".format(side)] = matches.cn_change.tolist()[0]
-#     row["pos_{}_in_cn_change_region".format(side)] = not matches.empty
-#     return row
-
-
 def match_changepoints(changepoints, sv):
     sv = sv.apply(lambda row: anno_bkp(row, changepoints, side="2"), axis=1)
     sv = sv.reset_index()
