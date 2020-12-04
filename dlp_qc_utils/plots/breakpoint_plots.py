@@ -29,8 +29,7 @@ def plot(ax, sv_hmm_concordance, changepoints, title=""):
     ax2.tick_params(axis='y', labelcolor=right_color)
     ax.set_title(title)
 
-    def bin(r):
-#     print(r.position_2, r.position_1, abs(r.position_2 - r.position_1) )
+def bin(r):
     if r.chromosome_1 != r.chromosome_2:
         return "interchromosomal"
     else:

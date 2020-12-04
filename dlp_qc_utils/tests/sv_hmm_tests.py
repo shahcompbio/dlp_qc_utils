@@ -11,7 +11,6 @@ def test_check_changepoints_against_matches():
 
 def test_get_cna_changepoints():
 
-
 def test_get_concordance():
 
 def test_split_concordance():
