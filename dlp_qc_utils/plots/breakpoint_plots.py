@@ -1,6 +1,39 @@
 import wgs_analysis.plots.rearrangement
-from  scgenome.cnplot import plot_cell_cn_profile
+from scgenome.cnplot import plot_cell_cn_profile
 import seaborn
+import statistics
+import scgenome.cnplot
+
+def plot_cn_changepoints(ax, cn_data_filt, changepoints):
+    chrom_starts = plot_cn(ax, cn_data_filt)
+    changepoints=changepoints[["chr", "start", "end"]]
+    changepoints["position"] = (changepoints.start + changepoints.end) / 2
+
+    changepoints["chr_start"] = changepoints.chr.replace(dict(zip(chrom_starts.chr, chrom_starts.chromosome_start)))
+    changepoints["position"] = changepoints.position + changepoints.chr_start
+    changepoints["y"] = [ax.get_ylim()[1]] * len(changepoints)
+    for i, data in changepoints[["position", "y"]].iterrows():
+        ax.plot([data.position, data.position], [0, data.y], 'b--')
+
+
+def plot_cn(ax, cn_data_filt):
+    cn_data_filt = cn_data_filt.astype({"chr":"category"})
+
+    cn_data_summary = cn_data_filt.groupby(['chr', 'start', 'end'])
+    cn_data_summary = cn_data_summary[['copy', 'state']]
+    cn_data_summary = cn_data_summary.aggregate(
+        {'copy': statistics.median, 'state': statistics.median}
+    )
+    cn_data_summary = cn_data_summary.reset_index().dropna()
+
+    cn_data_summary['state'] = cn_data_summary['state'].astype(float).round().astype(int)
+
+    chrom = scgenome.cnplot.plot_cell_cn_profile(
+        ax, cn_data_summary, 'copy', 'state'
+    )
+
+    return chrom
+
 
 def plot(ax, sv_hmm_concordance, changepoints, title=""):
 
